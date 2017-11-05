@@ -1,7 +1,8 @@
+import json
 import logging
 import time
-import socket
-import socketio
+
+import redis
 
 
 LOGGER = logging.getLogger(__name__)
@@ -14,20 +15,22 @@ class DataStreamer:
     MESSAGES_PER_SECOND = 15
 
     def __init__(self, socketio):
-        self._should_stop = False
         self._socketio = socketio
 
-        self._sock = None
-        self._sock_file = None
+        self._redis = None
+        self._redis_pubsub = None
 
+        self._should_stop = False
         self._last_message_time = time.clock()
 
     def start(self):
-        self._sock = socket.create_connection(
-            (DataStreamer.HOST, DataStreamer.PORT)
-        )
+        self._redis = redis.StrictRedis(
+            decode_responses=True)
+        self._redis.ping()
 
-        self._sock_file = self._sock.makefile()
+        self._redis_pubsub = self._redis.pubsub(ignore_subscribe_messages=True)
+        self._redis_pubsub.subscribe('rssiRaw')
+
         while not self._should_stop:
             self._loop()
 
@@ -35,15 +38,13 @@ class DataStreamer:
         self._should_stop = True
 
     def _loop(self):
-        data = self._sock_file.readline().strip()
-        data_split = data.split(' ')
+        message = self._redis_pubsub.get_message()
+        if message and message['channel'] == 'rssiRaw':
+            data = json.loads(message['data'])
 
-        timestamp = float(data_split[0]),
-        rssi = [int(d) for d in data_split[1:]]
-
-        if self._due_next_message():
-            self._socketio.emit('rssi', {'rssi': rssi})
-            self._last_message_time = time.clock()
+            if self._due_next_message():
+                self._socketio.emit('rssi', {'rssi': data['rssi']})
+                self._last_message_time = time.clock()
 
     def _due_next_message(self):
         message_delay = 1 / DataStreamer.MESSAGES_PER_SECOND

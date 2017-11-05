@@ -1,4 +1,3 @@
-import eventlet
 import threading
 import time
 
@@ -14,13 +13,7 @@ data_streamer = DataStreamer(socketio)
 data_streamer_thread = threading.Thread(target=data_streamer.start)
 
 
-def init_rssi_streamer():
-    if data_streamer_thread.is_alive():
-        print('must stop')
-        data_streamer.stop()
-        data_streamer_thread.join()
-
-    print('starting')
+def init_data_streamer():
     data_streamer_thread.start()
 
 def create_app():
@@ -34,9 +27,7 @@ def create_app():
     return app
 
 def run_app():
-    eventlet.monkey_patch()
-
     app = create_app()
-    init_rssi_streamer()
+    init_data_streamer()
 
-    socketio.run(app, debug=True)
+    socketio.run(app, host='0.0.0.0', use_reloader=False, debug=True)
