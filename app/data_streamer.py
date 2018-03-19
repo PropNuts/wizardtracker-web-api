@@ -12,7 +12,7 @@ class DataStreamer:
     HOST = '127.0.0.1'
     PORT = 3092
 
-    MESSAGES_PER_SECOND = 15
+    MESSAGES_PER_SECOND = 5
 
     def __init__(self, socketio):
         self._socketio = socketio
